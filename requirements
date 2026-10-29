@@ -1,0 +1,8 @@
+pandas
+pyarrow
+requests
+python-dotenv
+pyyaml
+holidays
+scikit-learn
+matplotlib
