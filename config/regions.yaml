@@ -1,7 +1,7 @@
-# Grid regions to forecast. To add a region later, copy the MISO block.
-# EIA codes for the other regions: PJM, ERCO (ERCOT), NYIS (NYISO), CISO (CAISO), ISNE (ISO-NE)
+# Grid regions to forecast. Each region gets its own model and its own weather cities.
+# population = approximate metro population, used only to weight the weather.
 
-history_start: "2019-01"   # EIA API returns MISO hourly data from Jan 2019
+history_start: "2019-01"   # EIA API returns hourly grid data from Jan 2019
 
 regions:
   MISO:
@@ -9,10 +9,69 @@ regions:
     name: Midcontinent ISO (Michigan and the Midwest)
     display_timezone: America/Chicago   # for the dashboard only; all data is stored in UTC
     weather_cities:
-      # population = approximate metro population, used only as weights
       - {name: Detroit,      lat: 42.33, lon: -83.05, population: 4300000}
       - {name: Minneapolis,  lat: 44.98, lon: -93.27, population: 3700000}
       - {name: St. Louis,    lat: 38.63, lon: -90.20, population: 2800000}
       - {name: Indianapolis, lat: 39.77, lon: -86.16, population: 2100000}
       - {name: Milwaukee,    lat: 43.04, lon: -87.91, population: 1600000}
       - {name: New Orleans,  lat: 29.95, lon: -90.07, population: 1000000}
+
+  PJM:
+    eia_code: PJM
+    name: PJM Interconnection (Mid-Atlantic, Ohio, Chicago area)
+    display_timezone: America/New_York
+    weather_cities:
+      - {name: Chicago,      lat: 41.88, lon: -87.63, population: 9400000}
+      - {name: Washington,   lat: 38.90, lon: -77.04, population: 6300000}
+      - {name: Philadelphia, lat: 39.95, lon: -75.17, population: 6200000}
+      - {name: Baltimore,    lat: 39.29, lon: -76.61, population: 2800000}
+      - {name: Pittsburgh,   lat: 40.44, lon: -80.00, population: 2400000}
+      - {name: Columbus,     lat: 39.96, lon: -83.00, population: 2100000}
+
+  ERCOT:
+    eia_code: ERCO
+    name: ERCOT (most of Texas)
+    display_timezone: America/Chicago
+    weather_cities:
+      - {name: Dallas,       lat: 32.78, lon: -96.80, population: 8100000}
+      - {name: Houston,      lat: 29.76, lon: -95.37, population: 7300000}
+      - {name: San Antonio,  lat: 29.42, lon: -98.49, population: 2700000}
+      - {name: Austin,       lat: 30.27, lon: -97.74, population: 2500000}
+
+  NYISO:
+    eia_code: NYIS
+    name: New York ISO (New York State)
+    display_timezone: America/New_York
+    weather_cities:
+      - {name: New York City, lat: 40.71, lon: -74.01, population: 8300000}
+      - {name: Long Island,   lat: 40.79, lon: -73.13, population: 2900000}
+      - {name: Buffalo,       lat: 42.89, lon: -78.88, population: 1100000}
+      - {name: Rochester,     lat: 43.16, lon: -77.61, population: 1100000}
+      - {name: Albany,        lat: 42.65, lon: -73.76, population: 900000}
+      - {name: Syracuse,      lat: 43.05, lon: -76.15, population: 650000}
+
+  CAISO:
+    eia_code: CISO
+    name: California ISO (most of California)
+    display_timezone: America/Los_Angeles
+    # Los Angeles city (LADWP) and Sacramento (SMUD) are separate grids, so the
+    # weights favour the parts of each metro that CAISO actually serves.
+    weather_cities:
+      - {name: Los Angeles,   lat: 34.05, lon: -118.24, population: 9000000}
+      - {name: San Francisco, lat: 37.77, lon: -122.42, population: 4700000}
+      - {name: Riverside,     lat: 33.95, lon: -117.40, population: 4600000}
+      - {name: San Diego,     lat: 32.72, lon: -117.16, population: 3300000}
+      - {name: San Jose,      lat: 37.34, lon: -121.89, population: 2000000}
+      - {name: Fresno,        lat: 36.74, lon: -119.79, population: 1000000}
+
+  ISONE:
+    eia_code: ISNE
+    name: ISO New England
+    display_timezone: America/New_York
+    weather_cities:
+      - {name: Boston,        lat: 42.36, lon: -71.06, population: 4900000}
+      - {name: Providence,    lat: 41.82, lon: -71.41, population: 1700000}
+      - {name: Hartford,      lat: 41.76, lon: -72.67, population: 1200000}
+      - {name: Worcester,     lat: 42.26, lon: -71.80, population: 1000000}
+      - {name: New Haven,     lat: 41.31, lon: -72.92, population: 860000}
+      - {name: Portland ME,   lat: 43.66, lon: -70.26, population: 550000}
