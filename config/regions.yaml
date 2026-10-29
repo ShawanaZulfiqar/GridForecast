@@ -1,0 +1,18 @@
+# Grid regions to forecast. To add a region later, copy the MISO block.
+# EIA codes for the other regions: PJM, ERCO (ERCOT), NYIS (NYISO), CISO (CAISO), ISNE (ISO-NE)
+
+history_start: "2019-01"   # EIA API returns MISO hourly data from Jan 2019
+
+regions:
+  MISO:
+    eia_code: MISO
+    name: Midcontinent ISO (Michigan and the Midwest)
+    display_timezone: America/Chicago   # for the dashboard only; all data is stored in UTC
+    weather_cities:
+      # population = approximate metro population, used only as weights
+      - {name: Detroit,      lat: 42.33, lon: -83.05, population: 4300000}
+      - {name: Minneapolis,  lat: 44.98, lon: -93.27, population: 3700000}
+      - {name: St. Louis,    lat: 38.63, lon: -90.20, population: 2800000}
+      - {name: Indianapolis, lat: 39.77, lon: -86.16, population: 2100000}
+      - {name: Milwaukee,    lat: 43.04, lon: -87.91, population: 1600000}
+      - {name: New Orleans,  lat: 29.95, lon: -90.07, population: 1000000}
