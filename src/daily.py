@@ -2,8 +2,9 @@
 Week 3: the daily live run. GitHub Actions runs this every morning.
 
 For each region it:
-  1. refreshes demand (EIA) and weather history (Open-Meteo archive)
-  2. downloads the latest weather forecast (Open-Meteo forecast API)
+  1. refreshes the last two months of demand (EIA)
+  2. downloads the past 14 days + next 3 days of weather (Open-Meteo forecast API);
+     these daily files overlap, so together they keep the weather history complete
   3. retrains the boosting model on all history
   4. forecasts every hour of tomorrow (local time) and LOCKS it in a file
      that is never overwritten - so the scoreboard stays honest
@@ -18,6 +19,9 @@ Files written:
 Usage (run from the project folder):
     python src/daily.py                 # full run
     python src/daily.py --skip-fetch    # use data already downloaded
+
+If one region fails, the others still run; the script exits with an error at
+the end so the GitHub run shows red and you know to check that region.
 """
 import argparse
 import subprocess
@@ -47,32 +51,34 @@ def make_gbm():
 
 
 # ---------------------------------------------------------------- 1-2. fresh data
-def refresh_history():
-    """Re-run the fetch scripts for recent months only."""
-    two_months_ago = (pd.Timestamp.now(tz="UTC") - pd.DateOffset(months=1)).strftime("%Y-%m")
-    this_year = str(pd.Timestamp.now(tz="UTC").year)
-    for cmd in (["src/fetch_eia.py", "--start", two_months_ago],
-                ["src/fetch_weather.py", "--start", this_year]):
-        subprocess.run([sys.executable, *cmd], cwd=ROOT, check=True)
+def refresh_demand():
+    """Re-pull the last two months of demand (EIA revises recent data)."""
+    last_month = (pd.Timestamp.now(tz="UTC") - pd.DateOffset(months=1)).strftime("%Y-%m")
+    subprocess.run([sys.executable, "src/fetch_eia.py", "--start", last_month], cwd=ROOT, check=True)
 
 
 def fetch_recent_weather(region, cities):
-    """Past 7 days + next 3 days of hourly weather for each city."""
+    """Past 14 days + next 3 days of hourly weather for each city."""
     frames = []
     for city in cities:
         params = {
             "latitude": city["lat"], "longitude": city["lon"],
             "hourly": "temperature_2m,relative_humidity_2m",
             "temperature_unit": "fahrenheit", "timezone": "GMT",
-            "past_days": 7, "forecast_days": 3,
+            "past_days": 14, "forecast_days": 3,
         }
-        for attempt in range(4):
-            r = requests.get(FORECAST_URL, params=params, timeout=60)
-            if r.status_code == 200:
-                break
-            print(f"    Open-Meteo HTTP {r.status_code}, retrying")
-            time.sleep(5 * (attempt + 1))
-        r.raise_for_status()
+        for attempt in range(6):
+            try:
+                r = requests.get(FORECAST_URL, params=params, timeout=60)
+                if r.status_code == 200:
+                    break
+                print(f"    {city['name']}: Open-Meteo HTTP {r.status_code}, retrying")
+                time.sleep(60 if r.status_code == 429 else 10)   # 429 = rate limited
+            except requests.RequestException as e:
+                print(f"    {city['name']}: request error {e}, retrying")
+                time.sleep(10)
+        else:
+            raise RuntimeError(f"Open-Meteo failed for {city['name']} after 6 tries")
         hourly = r.json()["hourly"]
         frames.append(pd.DataFrame({
             "timestamp_utc": pd.to_datetime(hourly["time"], utc=True),
@@ -90,7 +96,11 @@ def fetch_recent_weather(region, cities):
 
 # ---------------------------------------------------------------- 3-4. forecast
 def load_inputs(region, info):
-    """Demand history (outliers removed) and weather (archive first, then latest forecast)."""
+    """Demand history (outliers removed) and weather.
+
+    Weather priority: the archive first, then the daily forecast-API files from
+    newest to oldest. Tomorrow's hours only exist in the newest file.
+    """
     demand = clean_demand(read_folder(RAW_DIR / "eia" / region), region).set_index("timestamp_utc")
     demand.loc[demand["is_outlier"] == 1, "demand_mw"] = float("nan")
 
@@ -98,10 +108,11 @@ def load_inputs(region, info):
     recent_files = sorted((RAW_DIR / "weather_recent" / region).glob("*.parquet"))
     if not recent_files:
         raise SystemExit(f"{region}: no weather forecast file - run without --skip-fetch")
-    recent = weighted_weather(pd.read_parquet(recent_files[-1]), info["weather_cities"])
-
-    weather = (archive.set_index("timestamp_utc")[["temp_f", "humidity_pct"]]
-               .combine_first(recent.set_index("timestamp_utc")[["temp_f", "humidity_pct"]]))
+    cols = ["temp_f", "humidity_pct"]
+    weather = archive.set_index("timestamp_utc")[cols]
+    for path in reversed(recent_files):
+        recent = weighted_weather(pd.read_parquet(path), info["weather_cities"])
+        weather = weather.combine_first(recent.set_index("timestamp_utc")[cols])
     return demand, weather
 
 
@@ -203,16 +214,24 @@ def main():
         regions = {args.region: regions[args.region]}
 
     if not args.skip_fetch:
-        refresh_history()
+        refresh_demand()
 
+    failed = []
     for region, info in regions.items():
         print(f"\n{region}")
-        if not args.skip_fetch:
-            fetch_recent_weather(region, info["weather_cities"])
-        demand, weather = load_inputs(region, info)
-        forecast_tomorrow(region, info, demand, weather)
-        score(region, info, demand)
+        try:
+            if not args.skip_fetch:
+                fetch_recent_weather(region, info["weather_cities"])
+            demand, weather = load_inputs(region, info)
+            forecast_tomorrow(region, info, demand, weather)
+            score(region, info, demand)
+        except (Exception, SystemExit) as e:          # keep going with the other regions
+            print(f"  FAILED: {e}")
+            failed.append(region)
 
+    if failed:
+        print(f"\nDaily run finished with errors in: {', '.join(failed)}")
+        sys.exit(1)
     print("\nDaily run complete.")
 
 
