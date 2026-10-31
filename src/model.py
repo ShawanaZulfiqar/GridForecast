@@ -54,6 +54,8 @@ GBM_FEATURES = ["hour", "dow", "month", "doy", "holiday", "temp_f", "humidity",
 def load_region(region):
     with sqlite3.connect(DB_PATH) as con:
         df = pd.read_sql(QUERY, con, params=(region,))
+    if df.empty:
+        raise SystemExit(f"No {region} data in grid.db - run `python src/build_db.py` first.")
     df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
     df = df.set_index("timestamp_utc")
     # a flagged outlier should not be used as a "recent demand" input either
