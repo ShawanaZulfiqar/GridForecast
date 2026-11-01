@@ -1,3 +1,4 @@
 target_date,hours,model_mape,operator_mape,baseline_mape,actual_peak_gw,actual_peak_hour,model_peak_hour,operator_peak_hour
 2026-10-29,24,1.71,2.03,1.05,78.5,19,17,17
 2026-10-30,24,3.44,2.54,1.32,74.9,19,17,16
+2026-10-31,24,4.68,1.35,2.33,71.3,15,19,17
